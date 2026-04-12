@@ -3,10 +3,8 @@ use crate::base::connection_element::ConnectionElement;
 use crate::base::io_collection_element::IOCollectionElement;
 use crate::base::schema::{Schema, flatten_schema, print_flat_schema, run_flat_schema};
 use crate::base::wire::Wire;
-use crate::elements::adder_u64_element::AdderU64Element;
-use crate::elements::adder_u8_element::AdderU8Element;
+use crate::elements::adder_unsigned_element::AdderUnsignedElement;
 use crate::elements::full_adder_element::FullAdderElement;
-use crate::elements::half_adder_element::HalfAdderElement;
 
 pub mod base;
 pub mod elements;
@@ -51,17 +49,6 @@ fn bits_to_u64(bits: &[bool]) -> u64 {
 fn main() {
     let mut schema = Schema::new();
 
-    let a = Wire::input();
-    let b = Wire::input();
-    let c = Wire::input();
-
-    let o_s = Wire::output();
-    let o_c = Wire::output();
-
-    let full_adder = FullAdderElement::new(a, b, c);
-    let output_s_connection = ConnectionElement::new(*full_adder.get_res(), o_s);
-    let output_c_connection = ConnectionElement::new(*full_adder.get_carry(), o_c);
-
     let mut binary_in_a = Vec::new();
     let mut binary_in_b = Vec::new();
     for bi in 0..64 {
@@ -70,20 +57,15 @@ fn main() {
     }
     // let binary_out = [Wire::output(); 8];
 
-    let io_collection = IOCollectionElement::new(vec![a, b, c], vec![o_s, o_c]);
-    let io_collection_8bit_a = IOCollectionElement::new(binary_in_a.to_vec(), vec![]);
-    let io_collection_8bit_b = IOCollectionElement::new(binary_in_b.to_vec(), vec![]);
+    let io_collection_8bit_a = IOCollectionElement::new(&binary_in_a);
+    let io_collection_8bit_b = IOCollectionElement::new(&binary_in_b);
 
-    let adder8 = AdderU64Element::new(binary_in_a.clone().try_into().unwrap(), binary_in_b.clone().try_into().unwrap());
+    let adder8 = AdderUnsignedElement::<64>::new(&binary_in_a, &binary_in_b);
     let adder8out = adder8.get_res().clone();
 
-    // schema.elements.push(Box::new(io_collection));
     schema.elements.push(Box::new(io_collection_8bit_a));
     schema.elements.push(Box::new(io_collection_8bit_b));
-    // schema.elements.push(Box::new(full_adder));
     schema.elements.push(Box::new(adder8));
-    // schema.elements.push(Box::new(output_s_connection));
-    // schema.elements.push(Box::new(output_c_connection));
 
     let serialized = schema.serialize();
 
@@ -112,7 +94,7 @@ fn main() {
     for (i, item) in init_state.iter().enumerate() {
         // println!("{}:\t{}\t{}", i, item, flat[i]);
     }
-    let final_state = run_flat_schema(&flat, &init_state, 1);
+    let final_state = run_flat_schema(&flat, &init_state, 128);
 
     for (i, item) in final_state.iter().enumerate() {
         // println!("{}:\t{}\t{}", i, item, flat[i]);
@@ -133,4 +115,5 @@ fn main() {
     // println!("final_sum {:#?}", final_sum);
     println!("final_decoded {:#?}", final_u8);
     println!("expected {:#?}", expected_out);
+    println!("mismatch {:#?}", expected_out as i64 - final_u8 as i64);
 }

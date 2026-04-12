@@ -11,6 +11,8 @@ pub enum SerializedPart {
     InternalWire(u64, u64, u64),
     ExternalInput(u64),
     ExternalOutput(u64),
+    PullDown(u64),
+    PullUp(u64),
     And(u64),
     Or(u64),
     Xor(u64),

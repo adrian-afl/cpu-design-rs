@@ -1,3 +1,4 @@
+use rayon::iter::IndexedParallelIterator;
 use crate::base::element_trait::{Element, SerializedPart};
 use crate::gates::and_gate::and_gate;
 use crate::gates::not_gate::not_gate;
@@ -5,6 +6,7 @@ use crate::gates::or_gate::or_gate;
 use crate::gates::xor_gate::xor_gate;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Write};
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 pub struct Schema {
     pub elements: Vec<Box<dyn Element>>,
@@ -27,6 +29,8 @@ pub enum FlatSchema {
     Input,
     Output,
     Wire(usize, usize),
+    PullUp,
+    PullDown,
     And,
     Or,
     Xor,
@@ -39,6 +43,8 @@ impl Display for FlatSchema {
             FlatSchema::Wire(from, to) => f.write_fmt(format_args!("{from} -> {to}")),
             FlatSchema::Input => f.write_str("IN"),
             FlatSchema::Output => f.write_str("OUT"),
+            FlatSchema::PullUp => f.write_str("ONE"),
+            FlatSchema::PullDown => f.write_str("ZERO"),
             FlatSchema::And => f.write_str("AND"),
             FlatSchema::Or => f.write_str("OR"),
             FlatSchema::Xor => f.write_str("XOR"),
@@ -54,6 +60,8 @@ fn find_id_offset(search_id: u64, input: &Vec<SerializedPart>) -> usize {
             SerializedPart::InternalWire(id, _, _) => *id == search_id,
             SerializedPart::ExternalInput(id) => *id == search_id,
             SerializedPart::ExternalOutput(id) => *id == search_id,
+            SerializedPart::PullUp(id) => *id == search_id,
+            SerializedPart::PullDown(id) => *id == search_id,
             SerializedPart::And(id) => *id == search_id,
             SerializedPart::Or(id) => *id == search_id,
             SerializedPart::Xor(id) => *id == search_id,
@@ -82,6 +90,14 @@ pub fn flatten_schema(input: &Vec<SerializedPart>) -> (Vec<FlatSchema>, HashMap<
                 wire_id_map.insert(*wire_id, res.len());
                 res.push(FlatSchema::Output)
             }
+            SerializedPart::PullUp(wire_id) => {
+                wire_id_map.insert(*wire_id, res.len());
+                res.push(FlatSchema::Input)
+            }
+            SerializedPart::PullDown(wire_id) => {
+                wire_id_map.insert(*wire_id, res.len());
+                res.push(FlatSchema::Output)
+            }
             SerializedPart::And(_) => res.push(FlatSchema::And),
             SerializedPart::Or(_) => res.push(FlatSchema::Or),
             SerializedPart::Xor(_) => res.push(FlatSchema::Xor),
@@ -98,12 +114,11 @@ pub fn print_flat_schema(flat: &Vec<FlatSchema>) {
     }
 }
 
-pub fn run_flat_schema(flat: &[FlatSchema], state: &[bool], iterations: usize) -> Vec<bool> {
-    let mut state = state.to_vec();
+pub fn run_flat_schema(flat: &[FlatSchema], in_state: &[bool], iterations: usize) -> Vec<bool> {
+    let mut state = in_state.to_vec();
 
     for _ in 0..iterations {
-        // println!("{:#?}", state);
-        for (i, item) in flat.iter().enumerate() {
+        state = flat.par_iter().enumerate().map(|(i, item)| {
             let inputs = flat
                 .iter()
                 .enumerate()
@@ -118,18 +133,19 @@ pub fn run_flat_schema(flat: &[FlatSchema], state: &[bool], iterations: usize) -
                 })
                 .collect::<Vec<bool>>();
             match item {
-                FlatSchema::Input => {}
-                FlatSchema::Output => state[i] = inputs[0],
-                FlatSchema::Wire(from, to) => {
-                    state[*to] = state[*from];
-                    state[i] = state[*from]
-                }
-                FlatSchema::And => state[i] = and_gate(&inputs),
-                FlatSchema::Or => state[i] = or_gate(&inputs),
-                FlatSchema::Xor => state[i] = xor_gate(&inputs),
-                FlatSchema::Not => state[i] = not_gate(inputs[0]),
+                FlatSchema::Input =>  state[i],
+                FlatSchema::Output =>  inputs[0],
+                FlatSchema::Wire(from, _) =>
+                     state[*from],
+
+                FlatSchema::PullUp => true,
+                FlatSchema::PullDown =>  false,
+                FlatSchema::And =>  and_gate(&inputs),
+                FlatSchema::Or =>  or_gate(&inputs),
+                FlatSchema::Xor =>  xor_gate(&inputs),
+                FlatSchema::Not =>  not_gate(inputs[0]),
             }
-        }
+        }).collect();
     }
 
     state

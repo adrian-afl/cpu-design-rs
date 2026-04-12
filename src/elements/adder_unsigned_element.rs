@@ -4,28 +4,24 @@ use crate::elements::full_adder_element::FullAdderElement;
 use crate::elements::gate_element::GateElement;
 use crate::elements::half_adder_element::HalfAdderElement;
 
-const U8_ADDER_BITWIDTH: usize = 64;
-
-pub struct AdderU64Element {
+pub struct AdderUnsignedElement<const ADDER_BITWIDTH: usize> {
     pub id: u64,
 
-    in_a: [Wire; U8_ADDER_BITWIDTH],
-    in_b: [Wire; U8_ADDER_BITWIDTH],
     zero_wire: Wire,
 
-    out_res: [Wire; U8_ADDER_BITWIDTH],
+    out_res: [Wire; ADDER_BITWIDTH],
     out_carry: Wire,
 
     full_adders: Vec<FullAdderElement>,
 }
 
-impl AdderU64Element {
-    pub fn new(in_a: [Wire; U8_ADDER_BITWIDTH], in_b: [Wire; U8_ADDER_BITWIDTH]) -> Self {
+impl<const ADDER_BITWIDTH: usize> AdderUnsignedElement<ADDER_BITWIDTH> {
+    pub fn new(in_a: &[Wire], in_b: &[Wire]) -> Self {
         let mut full_adders = Vec::new();
         let zero_wire = Wire::static_zero();
-        (0..U8_ADDER_BITWIDTH).for_each(|bi| {
+        (0..ADDER_BITWIDTH).for_each(|bi| {
             let is_first = bi == 0;
-            let is_last = bi == U8_ADDER_BITWIDTH - 1;
+            let is_last = bi == ADDER_BITWIDTH - 1;
             if is_first {
                 let new = FullAdderElement::new(in_a[bi], in_b[bi], zero_wire);
                 full_adders.push(new);
@@ -43,8 +39,6 @@ impl AdderU64Element {
         let last_adder: &FullAdderElement = full_adders.last().unwrap();
         Self {
             id: get_next_element_id(),
-            in_a,
-            in_b,
             out_res: full_adders
                 .iter()
                 .map(|x| *x.get_res())
@@ -57,7 +51,7 @@ impl AdderU64Element {
         }
     }
 
-    pub fn get_res(&self) -> &[Wire; U8_ADDER_BITWIDTH] {
+    pub fn get_res(&self) -> &[Wire; ADDER_BITWIDTH] {
         &self.out_res
     }
 
@@ -66,7 +60,7 @@ impl AdderU64Element {
     }
 }
 
-impl Element for AdderU64Element {
+impl<const ADDER_BITWIDTH: usize> Element for AdderUnsignedElement<ADDER_BITWIDTH> {
     fn get_id(&self) -> u64 {
         self.id
     }
