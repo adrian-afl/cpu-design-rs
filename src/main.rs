@@ -1,46 +1,59 @@
-use std::sync::RwLock;
-use crate::base::connection_element::ConnectionElement;
 use crate::base::io_collection_element::IOCollectionElement;
-use crate::base::schema::{Schema, flatten_schema, print_flat_schema, run_flat_schema};
+use crate::base::schema::{RunConfig, Schema, flatten_schema, run_flat_schema};
 use crate::base::wire::Wire;
 use crate::elements::adder_unsigned_element::AdderUnsignedElement;
-use crate::elements::full_adder_element::FullAdderElement;
 
 pub mod base;
 pub mod elements;
 pub mod gates;
 
-fn u8_to_bits(v: u8) -> Vec<bool> {
+const LOGICAL_ZERO: f32 = 0.0;
+const LOGICAL_ONE: f32 = 5.0;
+const LOGICAL_THRESHOLD: f32 = 2.5;
+
+fn u8_to_bits(v: u8) -> Vec<f32> {
     let mut res = Vec::new();
     for i in 0..8 {
-        res.push(v & (1 << i) != 0);
+        res.push(if v & (1 << i) != 0 {
+            LOGICAL_ONE
+        } else {
+            LOGICAL_ZERO
+        });
     }
 
     res
 }
 
-fn bits_to_u8(bits: &[bool]) -> u8 {
+fn bits_to_u8(bits: &[f32]) -> u8 {
     let mut res: u8 = 0;
     for i in 0..bits.len() {
-        if bits[i] { res |= 0x1 << i; }
+        if bits[i] > LOGICAL_THRESHOLD {
+            res |= 0x1 << i;
+        }
     }
 
     res
 }
 
-fn u64_to_bits(v: u64) -> Vec<bool> {
+fn u64_to_bits(v: u64) -> Vec<f32> {
     let mut res = Vec::new();
     for i in 0..64 {
-        res.push(v & (1 << i) != 0);
+        res.push(if v & (1 << i) != 0 {
+            LOGICAL_ONE
+        } else {
+            LOGICAL_ZERO
+        });
     }
 
     res
 }
 
-fn bits_to_u64(bits: &[bool]) -> u64 {
+fn bits_to_u64(bits: &[f32]) -> u64 {
     let mut res: u64 = 0;
     for i in 0..bits.len() {
-        if bits[i] { res |= 0x1 << i; }
+        if bits[i] > LOGICAL_THRESHOLD {
+            res |= 0x1 << i;
+        }
     }
 
     res
@@ -75,7 +88,7 @@ fn main() {
 
     // print_flat_schema(&flat);
 
-    let mut init_state = (0..flat.len()).map(|_| false).collect::<Vec<_>>();
+    let mut init_state = (0..flat.len()).map(|_| 0.0).collect::<Vec<_>>();
 
     let in_num_a = 289374928374;
     let in_num_b = 4554765673212;
@@ -94,15 +107,22 @@ fn main() {
     for (i, item) in init_state.iter().enumerate() {
         // println!("{}:\t{}\t{}", i, item, flat[i]);
     }
-    let final_state = run_flat_schema(&flat, &init_state, 128);
+
+    let run_config = RunConfig {
+        iterations: 128,
+        logical_zero_volts: LOGICAL_ZERO,
+        logical_one_volts: LOGICAL_ONE,
+    };
+
+    let final_state = run_flat_schema(&flat, &init_state, &run_config);
 
     for (i, item) in final_state.iter().enumerate() {
         // println!("{}:\t{}\t{}", i, item, flat[i]);
     }
 
-    let readout = |wire: Wire| -> bool { final_state[wires_map[&wire.id]] };
+    let readout = |wire: Wire| -> f32 { final_state[wires_map[&wire.id]] };
 
-    let readout_arr = |wires: &[Wire]| -> Vec<bool> {
+    let readout_arr = |wires: &[Wire]| -> Vec<f32> {
         wires
             .iter()
             .map(|wire| final_state[wires_map[&wire.id]])

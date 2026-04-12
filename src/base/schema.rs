@@ -1,12 +1,12 @@
-use rayon::iter::IndexedParallelIterator;
 use crate::base::element_trait::{Element, SerializedPart};
-use crate::gates::and_gate::and_gate;
-use crate::gates::not_gate::not_gate;
-use crate::gates::or_gate::or_gate;
-use crate::gates::xor_gate::xor_gate;
+use crate::gates::and_gate;
+use crate::gates::not_gate;
+use crate::gates::or_gate;
+use crate::gates::xor_gate;
+use rayon::iter::IndexedParallelIterator;
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter, Write};
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 
 pub struct Schema {
     pub elements: Vec<Box<dyn Element>>,
@@ -114,38 +114,62 @@ pub fn print_flat_schema(flat: &Vec<FlatSchema>) {
     }
 }
 
-pub fn run_flat_schema(flat: &[FlatSchema], in_state: &[bool], iterations: usize) -> Vec<bool> {
+pub struct RunConfig {
+    pub logical_one_volts: f32,
+    pub logical_zero_volts: f32,
+    pub iterations: usize,
+}
+
+pub fn run_flat_schema(flat: &[FlatSchema], in_state: &[f32], run_config: &RunConfig) -> Vec<f32> {
     let mut state = in_state.to_vec();
 
-    for _ in 0..iterations {
-        state = flat.par_iter().enumerate().map(|(i, item)| {
-            let inputs = flat
-                .iter()
-                .enumerate()
-                .filter_map(|(si, sitem)| {
-                    if let FlatSchema::Wire(_from, to) = sitem
-                        && *to == i
-                    {
-                        Some(state[si])
-                    } else {
-                        None
-                    }
-                })
-                .collect::<Vec<bool>>();
-            match item {
-                FlatSchema::Input =>  state[i],
-                FlatSchema::Output =>  inputs[0],
-                FlatSchema::Wire(from, _) =>
-                     state[*from],
-
-                FlatSchema::PullUp => true,
-                FlatSchema::PullDown =>  false,
-                FlatSchema::And =>  and_gate(&inputs),
-                FlatSchema::Or =>  or_gate(&inputs),
-                FlatSchema::Xor =>  xor_gate(&inputs),
-                FlatSchema::Not =>  not_gate(inputs[0]),
-            }
-        }).collect();
+    for _ in 0..run_config.iterations {
+        state = flat
+            .par_iter()
+            .enumerate()
+            .map(|(i, item)| {
+                let inputs = flat
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(si, sitem)| {
+                        if let FlatSchema::Wire(_from, to) = sitem
+                            && *to == i
+                        {
+                            Some(state[si])
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<f32>>();
+                match item {
+                    FlatSchema::Input => state[i],
+                    FlatSchema::Output => inputs[0],
+                    FlatSchema::Wire(from, _) => state[*from],
+                    FlatSchema::PullUp => run_config.logical_one_volts,
+                    FlatSchema::PullDown => run_config.logical_zero_volts,
+                    FlatSchema::And => and_gate(
+                        &inputs,
+                        run_config.logical_zero_volts,
+                        run_config.logical_one_volts,
+                    ),
+                    FlatSchema::Or => or_gate(
+                        &inputs,
+                        run_config.logical_zero_volts,
+                        run_config.logical_one_volts,
+                    ),
+                    FlatSchema::Xor => xor_gate(
+                        &inputs,
+                        run_config.logical_zero_volts,
+                        run_config.logical_one_volts,
+                    ),
+                    FlatSchema::Not => not_gate(
+                        inputs.iter().fold(0.0, |p, c| p.min(*c)),
+                        run_config.logical_zero_volts,
+                        run_config.logical_one_volts,
+                    ),
+                }
+            })
+            .collect();
     }
 
     state
