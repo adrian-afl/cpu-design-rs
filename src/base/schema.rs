@@ -174,3 +174,101 @@ pub fn run_flat_schema(flat: &[FlatSchema], in_state: &[f32], run_config: &RunCo
 
     state
 }
+
+pub fn generate_verilog(flat: &[FlatSchema]) -> String {
+    let mut inputs = Vec::new();
+    let mut outputs = Vec::new();
+    let mut internal = Vec::new();
+    for (i, item) in flat.iter().enumerate() {
+        match item {
+            FlatSchema::Input => inputs.push(format!("w{}", i)),
+            FlatSchema::Output => outputs.push(format!("w{}", i)),
+            FlatSchema::Wire(_, _) => internal.push(format!("w{}", i)),
+            _ => (),
+        }
+    }
+
+    if inputs.is_empty() {
+        panic!("no inputs")
+    }
+
+    if outputs.is_empty() {
+        panic!("no outputs")
+    }
+
+    let mut verilog_lines: Vec<String> = Vec::new();
+
+    verilog_lines.push("module top(".to_string());
+    if !inputs.is_empty() {
+        verilog_lines.push(format!("  input {},", inputs.join(", ")));
+    }
+    if !outputs.is_empty() {
+        verilog_lines.push(format!("  output {}", outputs.join(", ")));
+    }
+    verilog_lines.push(");".to_string());
+
+    for internal_wire in internal {
+        verilog_lines.push(format!("  wire {};", internal_wire));
+    }
+
+    for (i, item) in flat.iter().enumerate() {
+        let inputs: Vec<String> = flat
+            .iter()
+            .enumerate()
+            .filter_map(|(si, sitem)| {
+                if let FlatSchema::Wire(from, to) = sitem
+                    && *to == i
+                {
+                    Some(format!("w{}", from))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        match item {
+            FlatSchema::And => verilog_lines.push(format!(
+                "  and g{} (w{}, {});",
+                i,
+                i,
+                inputs.join(", ")
+            )),
+            FlatSchema::Or => verilog_lines.push(format!(
+                "  or g{} (w{}, {});",
+                i,
+                i,
+                inputs.join(", ")
+            )),
+            FlatSchema::Xor => verilog_lines.push(format!(
+                "  xor g{} (w{}, {});",
+                i,
+                i,
+                inputs.join(", ")
+            )),
+            FlatSchema::Not => verilog_lines.push(format!(
+                "  not g{} (w{}, {});",
+                i,
+                i,
+                inputs.join(", ")
+            )),
+
+            FlatSchema::Wire(from, _) => {
+                verilog_lines.push(format!("  assign w{} = w{};", i, from))
+            }
+
+            FlatSchema::PullUp => verilog_lines.push(format!("  assign w{} = 1'b1;", i)),
+            FlatSchema::PullDown => verilog_lines.push(format!("  assign w{} = 1'b0;", i)),
+
+            FlatSchema::Output => {
+                if let Some(src) = inputs.first() {
+                    verilog_lines.push(format!("  assign w{} = {};", i, src));
+                }
+            }
+            FlatSchema::Input => {}
+        }
+    }
+
+    verilog_lines.push("endmodule".to_string());
+
+    verilog_lines.join("\n")
+}
