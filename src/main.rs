@@ -4,6 +4,7 @@ use crate::base::io_collection_element::IOCollectionElement;
 use crate::base::schema::{RunConfig, Schema, flatten_schema, run_flat_schema, generate_verilog};
 use crate::base::wire::Wire;
 use crate::elements::adder_unsigned_element::AdderUnsignedElement;
+use crate::elements::register_element::RegisterElement;
 
 pub mod base;
 pub mod elements;
@@ -86,7 +87,11 @@ fn main() {
     schema.elements.push(Box::new(io_collection_8bit_out));
     schema.elements.push(Box::new(adder8));
 
-    for (index, outbit) in adder8out.iter().enumerate() {
+    let register8 = RegisterElement::<8>::new(&adder8out, Wire::static_one(), Wire::static_zero());
+    let register88out = register8.get_data().clone();
+    schema.elements.push(Box::new(register8));
+
+    for (index, outbit) in register88out.iter().enumerate() {
         schema.elements.push(Box::new(ConnectionElement::new(*outbit, binary_output[index])));
     }
 
@@ -141,7 +146,7 @@ fn main() {
             .collect()
     };
 
-    let final_sum = readout_arr(&adder8out);
+    let final_sum = readout_arr(&register88out);
     let final_u8 = bits_to_u8(final_sum.as_slice());
 
     // println!("final_sum {:#?}", final_sum);

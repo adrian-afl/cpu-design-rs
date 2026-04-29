@@ -1,0 +1,1 @@
+to learn what the hell am i doing i decided i will do some of raw verilog first and here are my experiments

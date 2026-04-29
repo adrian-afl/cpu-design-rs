@@ -1,4 +1,4 @@
-use crate::base::element_trait::get_next_element_id;
+use crate::base::element_trait::{get_next_element_id, Element, SerializedPart};
 
 #[derive(Clone, Copy, Debug)]
 pub enum WireType {
