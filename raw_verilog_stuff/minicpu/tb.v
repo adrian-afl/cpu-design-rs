@@ -1,7 +1,5 @@
 `include "cpu.v"
 module cpu_tb ();
-  reg [15:0] ram[0:(16 * 1024)];
-
   wire [15:0] memory_readout;
 
   wire [15:0] memory_writeout;
@@ -15,6 +13,8 @@ module cpu_tb ();
   wire [15:0] out_reg_sp;
 
   reg run_signal;
+
+
 
   (* keep = "true", syn_preserve = 1 *)
   cpu i_cpu1 (
@@ -31,14 +31,6 @@ module cpu_tb ();
       .out_reg_sp(out_reg_sp)
   );
 
-  assign memory_readout = ram[address_bus];
-
-  always @(negedge run_signal) begin
-    if (memory_write_enable) begin
-      // $display ("REALLY in TB writing %h to %h", memory_writeout, address_bus);	
-      ram[address_bus] <= memory_writeout;
-    end
-  end
 
   integer i = 0;
 

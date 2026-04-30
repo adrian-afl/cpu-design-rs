@@ -2,18 +2,11 @@ module cpu (
     input clk,
     input rst,
 
-    input [15:0] memory_readout,
+    input [15:0] rdata,
 
-    output reg [15:0] memory_writeout,
-    output reg memory_write_enable,
-    output reg [15:0] address_bus = 0,
-
-    output [15:0] out_reg_x,
-    output [15:0] out_reg_y,
-    output [15:0] out_reg_accu,
-    output [15:0] out_reg_pc,
-    output [15:0] out_reg_sp,
-    output out_carry
+    output reg [15:0] wdata = 0,
+    output reg wr_en = 0,
+    output reg [15:0] addr = 0
 );
 
   `define INSTR_HALT 16'h0
@@ -65,23 +58,23 @@ module cpu (
   reg [16:0] reg_accu;
 
   always @(posedge clk) begin
-    address_bus <= address_bus;
+    addr   <= addr;
     reg_pc <= reg_pc;
-    memory_write_enable <= 0;
+    wr_en  <= 0;
 
     case (current_state)
       `INTERNAL_STATE_PREPARE_FETCH_INSTR: begin
         // prepare reading instruction, next cycle will have it ready
-        address_bus   <= reg_pc;
+        addr <= reg_pc;
         current_state <= `INTERNAL_STATE_FETCH_INSTR;
       end
       `INTERNAL_STATE_FETCH_INSTR: begin
         // fetch instruction 
-        reg_instr <= memory_readout;
-        address_bus <= reg_pc + 1;  // also prepare to read the instruction data
+        reg_instr <= rdata;
+        addr <= reg_pc + 1;  // also prepare to read the instruction data
         current_state <= `INTERNAL_STATE_FETCH_INSTR_DATA_BUS_PREFETCH;
         // for debugging print next instruction and current registers
-        case (memory_readout)
+        case (rdata)
           `INSTR_STX_DIRECT:
           $display(
               "STX_DIRECT\tX %h, Y %h, ACCU %h, PC %h, SP %h",
@@ -265,17 +258,17 @@ module cpu (
       end
       `INTERNAL_STATE_FETCH_INSTR_DATA_BUS_PREFETCH: begin
         // fetch instruction data
-        reg_instr_data <= memory_readout;
+        reg_instr_data <= rdata;
         current_state  <= `INTERNAL_STATE_EXEC;
         // if needed, prepare read for the instruction executor
         case (reg_instr)
-          `INSTR_STX_DIRECT: reg_x <= memory_readout;
-          `INSTR_STY_DIRECT: reg_y <= memory_readout;
-          `INSTR_MEM_LX_DIRECT: address_bus <= memory_readout;
-          `INSTR_MEM_LY_DIRECT: address_bus <= memory_readout;
-          `INSTR_MEM_SX_DIRECT: address_bus <= memory_readout;
-          `INSTR_MEM_SY_DIRECT: address_bus <= memory_readout;
-          default: address_bus <= address_bus;
+          `INSTR_STX_DIRECT: reg_x <= rdata;
+          `INSTR_STY_DIRECT: reg_y <= rdata;
+          `INSTR_MEM_LX_DIRECT: addr <= rdata;
+          `INSTR_MEM_LY_DIRECT: addr <= rdata;
+          `INSTR_MEM_SX_DIRECT: addr <= rdata;
+          `INSTR_MEM_SY_DIRECT: addr <= rdata;
+          default: addr <= addr;
         endcase
       end
       `INTERNAL_STATE_EXEC: begin
@@ -284,14 +277,14 @@ module cpu (
         case (reg_instr)
           `INSTR_STX_DIRECT: reg_x <= reg_instr_data;
           `INSTR_STY_DIRECT: reg_y <= reg_instr_data;
-          `INSTR_MEM_LX_DIRECT: reg_x <= memory_readout;
-          `INSTR_MEM_LY_DIRECT: reg_y <= memory_readout;
+          `INSTR_MEM_LX_DIRECT: reg_x <= rdata;
+          `INSTR_MEM_LY_DIRECT: reg_y <= rdata;
           `INSTR_MEM_SX_DIRECT: begin
-            memory_writeout <= reg_x;
+            wdata <= reg_x;
             memory_write_enable <= 1;  // those enables get reset with next cycle
           end
           `INSTR_MEM_SY_DIRECT: begin
-            memory_writeout <= reg_y;
+            wdata <= reg_y;
             memory_write_enable <= 1;
           end
           `INSTR_ADD: reg_accu <= reg_x + reg_y;
