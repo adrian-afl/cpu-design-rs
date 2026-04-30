@@ -162,6 +162,106 @@ module cpu_tb ();
 
     // opcode
     #5 ext_addr = 32'd17;
+    #5 ext_wdata = `INSTR_ADD;
+    #5 ext_wr_en = 1;
+    #5 clk = 1;
+    #5 clk = 0;
+    #5 ext_wr_en = 0;
+
+    // addressing
+    #5 ext_addr = 32'd18;
+    #5 ext_wdata = 8'b00_00_00;
+    #5 ext_wr_en = 1;
+    #5 clk = 1;
+    #5 clk = 0;
+    #5 ext_wr_en = 0;
+
+    #5 ext_addr = 32'd19;
+    #5 ext_wdata = 8'h00;
+    #5 ext_wr_en = 1;
+    #5 clk = 1;
+    #5 clk = 0;
+    #5 ext_wr_en = 0;
+
+    #5 ext_addr = 32'd20;
+    #5 ext_wdata = 8'h00;
+    #5 ext_wr_en = 1;
+    #5 clk = 1;
+    #5 clk = 0;
+    #5 ext_wr_en = 0;
+
+    #5 ext_addr = 32'd21;
+    #5 ext_wdata = 8'h00;
+    #5 ext_wr_en = 1;
+    #5 clk = 1;
+    #5 clk = 0;
+    #5 ext_wr_en = 0;
+
+    #5 ext_addr = 32'd22;
+    #5 ext_wdata = 8'h30;
+    #5 ext_wr_en = 1;
+    #5 clk = 1;
+    #5 clk = 0;
+    #5 ext_wr_en = 0;
+
+    #5 ext_addr = 32'd23;
+    #5 ext_wdata = 8'h00;
+    #5 ext_wr_en = 1;
+    #5 clk = 1;
+    #5 clk = 0;
+    #5 ext_wr_en = 0;
+
+    #5 ext_addr = 32'd24;
+    #5 ext_wdata = 8'h00;
+    #5 ext_wr_en = 1;
+    #5 clk = 1;
+    #5 clk = 0;
+    #5 ext_wr_en = 0;
+
+    #5 ext_addr = 32'd25;
+    #5 ext_wdata = 8'h00;
+    #5 ext_wr_en = 1;
+    #5 clk = 1;
+    #5 clk = 0;
+    #5 ext_wr_en = 0;
+
+    #5 ext_addr = 32'd26;
+    #5 ext_wdata = 8'h05;
+    #5 ext_wr_en = 1;
+    #5 clk = 1;
+    #5 clk = 0;
+    #5 ext_wr_en = 0;
+
+    #5 ext_addr = 32'd27;
+    #5 ext_wdata = 8'h00;
+    #5 ext_wr_en = 1;
+    #5 clk = 1;
+    #5 clk = 0;
+    #5 ext_wr_en = 0;
+
+    #5 ext_addr = 32'd28;
+    #5 ext_wdata = 8'h00;
+    #5 ext_wr_en = 1;
+    #5 clk = 1;
+    #5 clk = 0;
+    #5 ext_wr_en = 0;
+
+    #5 ext_addr = 32'd29;
+    #5 ext_wdata = 8'h00;
+    #5 ext_wr_en = 1;
+    #5 clk = 1;
+    #5 clk = 0;
+    #5 ext_wr_en = 0;
+
+    #5 ext_addr = 32'd30;
+    #5 ext_wdata = 8'h37;
+    #5 ext_wr_en = 1;
+    #5 clk = 1;
+    #5 clk = 0;
+    #5 ext_wr_en = 0;
+
+    // opcode
+    #5 ext_addr = 32'd31;
     #5 ext_wdata = `INSTR_HALT;
     #5 ext_wr_en = 1;
     #5 clk = 1;
@@ -217,7 +317,7 @@ module cpu_tb ();
     // ram[16] = `INSTR_HALT;
     // ram[17] = 16'h0102;
 
-    for (i = 0; i < 32; i = i + 1) begin
+    for (i = 0; i < 132; i = i + 1) begin
       #5 clk = 1;
       #5 clk = 0;
     end

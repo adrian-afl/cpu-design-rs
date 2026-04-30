@@ -5,7 +5,7 @@ module memory16kx2 (
     input [7:0] wdata,
     input wr_en
 );
-  reg [15:0] ram[0:(16 * 1024)];
+  reg [7:0] ram[0:(16 * 1024)];
 
   assign rdata = ram[addr];
 

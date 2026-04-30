@@ -12,9 +12,6 @@ module cpu (
   // instructions, see idea.md for what is going on
 
   `define INSTR_HALT 8'h00
-  `define INSTR_CRYCLR 8'h01
-  `define INSTR_SPUSH 8'h02
-  `define INSTR_SPOP 8'h03
 
   `define INSTR_MOV 8'h10
   `define INSTR_PUT 8'h11
@@ -25,7 +22,14 @@ module cpu (
   `define INSTR_DIV 8'h23
 
   `define INSTR_JEQ 8'h30
-  `define INSTR_JCRY 8'h31
+  `define INSTR_JNEQ 8'h31
+  `define INSTR_JGT 8'h32
+  `define INSTR_JGTE 8'h33
+  `define INSTR_JLT 8'h34
+  `define INSTR_JLTE 8'h35
+  `define INSTR_JZERO 8'h36
+  `define INSTR_JNZERO 8'h37
+  `define INSTR_RET 8'h38
 
   // states that definitely will get reworked heavily maybe
   // even state machine per instruction would be reasonable
@@ -51,21 +55,23 @@ module cpu (
   `define INTERNAL_STATE_HALTED 8'hFF
 
   `define INTERNAL_ADRESSING_DIRECT 8'b00
-  `define INTERNAL_ADRESSING_INDIRECT 8'b01
-  `define INTERNAL_ADRESSING_ABSOLUTE 8'b00
-  `define INTERNAL_ADRESSING_RELATIVE 8'b01
+  `define INTERNAL_ADRESSING_INDIRECT 2'b01
+  `define INTERNAL_ADRESSING_ABSOLUTE_SHORT 2'b00
+  `define INTERNAL_ADRESSING_RELATIVE_SHORT 2'b01
+  `define INTERNAL_ADRESSING_ABSOLUTE_LONG 2'b10
+  `define INTERNAL_ADRESSING_RELATIVE_LONG 2'b11
 
-  reg [7:0] cursor = 0;  // for multi byte reads
+  reg [31:0] cursor = 0;  // for multi byte reads
 
   reg [7:0] current_state = 0;
 
-  reg [15:0] reg_pc = 0;
-  reg [15:0] reg_sp = 0;
+  reg [31:0] reg_pc = 0;
+  reg [31:0] reg_sp = 0;
 
   reg [7:0] reg_instr;
-  reg [2:0] addressing_d1 = 0;
-  reg [2:0] addressing_d2 = 0;
-  reg [2:0] addressing_d3 = 0;
+  reg [1:0] addressing_d1 = 0;
+  reg [1:0] addressing_d2 = 0;
+  reg [1:0] addressing_d3 = 0;
   reg [32 * 3 - 1:0] reg_instr_data_full;
   wire [31:0] reg_instr_data_1;
   wire [31:0] reg_instr_data_2;
@@ -194,12 +200,14 @@ module cpu (
           $display("INTERNAL_STATE_FETCH_INSTRUCTION");
           // fetch instruction 
           reg_instr <= rdata;
-          addr <= reg_pc + 1;  // also prepare to read the addressiing
+          addr <= reg_pc + 1;  // also prepare to read the addressing
           current_state <= `INTERNAL_STATE_FETCH_ADDRESSING;
           // for debugging print next instruction and current registers
           case (rdata)
             `INSTR_PUT: $display("PUT");
             `INSTR_MOV: $display("MOV");
+            `INSTR_ADD: $display("ADD");
+            `INSTR_SUB: $display("SUB");
             `INSTR_HALT: $display("HALT");
             default: $display("Unknown instruction %h at %h", rdata, reg_pc);
           endcase
@@ -272,6 +280,12 @@ module cpu (
               cursor <= 7;  // read 8 bytes so d1 and d2 are filled with 32 bits
               addr <= reg_pc + 1 + 7 + 1;
             end
+            `INSTR_ADD: begin
+              // add gotta read one thing into D1 and D2 and D3
+              current_state <= `INTERNAL_STATE_FETCH_INTO_DATA;
+              cursor <= 11;  // read 12 bytes so d1 and d2 and d3 are filled with 32 bits
+              addr <= reg_pc + 1 + 11 + 1;
+            end
             default: current_state <= `INTERNAL_STATE_EXEC;
           endcase
         end
@@ -301,6 +315,14 @@ module cpu (
                   resolve_d1_state <= `LOADER_STATE_PREPARE_8B;
                   if (addressing_d2 == `INTERNAL_ADRESSING_INDIRECT)
                     resolve_d2_state <= `LOADER_STATE_PREPARE_32B;
+                end
+                `INSTR_ADD: begin
+                  resolve_d1_state <= `LOADER_STATE_PREPARE_8B;
+                  resolve_d2_state <= `LOADER_STATE_PREPARE_8B;
+                  if (addressing_d3 == `INTERNAL_ADRESSING_INDIRECT)
+                    resolve_d3_state <= `LOADER_STATE_PREPARE_32B;
+                end
+                default: begin
                 end
               endcase
 
@@ -358,7 +380,17 @@ module cpu (
               addr  <= reg_instr_data_2;
               wdata <= reg_instr_data_1[31:24];
             end
+            `INSTR_ADD: begin
+              $display("reg_instr_data_1 %h", reg_instr_data_1);
+              $display("reg_instr_data_2 %h", reg_instr_data_2);
+              $display("reg_instr_data_3 %h", reg_instr_data_3);
+              $display("reg_instr_data_full %h", reg_instr_data_full);
+              wr_en <= 1;
+              addr  <= reg_instr_data_3;
+              wdata <= reg_instr_data_1[31:24] + reg_instr_data_2[31:24];
+            end
             `INSTR_HALT: current_state <= `INTERNAL_STATE_HALTED;
+            default current_state <= `INTERNAL_STATE_HALTED;
           endcase
         end
         `INTERNAL_STATE_HALTED: begin
@@ -375,6 +407,7 @@ module cpu (
           case (reg_instr)
             `INSTR_PUT: reg_pc <= reg_pc + 1 + 1 + 4 + 1;  // opcode, adressing, d1, value
             `INSTR_MOV: reg_pc <= reg_pc + 1 + 4 + 4 + 1;  // opcode, adressing, d1, d2
+            `INSTR_ADD: reg_pc <= reg_pc + 1 + 4 + 4 + 4 + 1;  // opcode, adressing, d1, d2
             `INSTR_HALT: reg_pc <= reg_pc + 1 + 1;  // opcode
             default: reg_pc <= reg_pc;
           endcase

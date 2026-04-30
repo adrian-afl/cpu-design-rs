@@ -151,6 +151,43 @@ pub fn mov(pc: &mut u32, from: Address, to: Address) {
     write_u32(pc, to.value());
 }
 
+pub fn add(pc: &mut u32, a: Address, b: Address, to: Address) {
+    let addressing = match to {
+        Address::Direct(_) => "8'b00_00_00",
+        Address::Pointer(_) => "8'b01_00_00",
+    };
+
+    println!(
+        "
+    // opcode
+    #5 ext_addr = 32'd{pc};
+    #5 ext_wdata = `INSTR_ADD;
+    #5 ext_wr_en = 1;
+    #5 clk = 1;
+    #5 clk = 0;
+    #5 ext_wr_en = 0;"
+    );
+
+    *pc += 1;
+
+    println!(
+        "
+    // addressing
+    #5 ext_addr = 32'd{pc};
+    #5 ext_wdata = {addressing};
+    #5 ext_wr_en = 1;
+    #5 clk = 1;
+    #5 clk = 0;
+    #5 ext_wr_en = 0;"
+    );
+
+    *pc += 1;
+
+    write_u32(pc, a.value());
+    write_u32(pc, b.value());
+    write_u32(pc, to.value());
+}
+
 
 pub fn halt(pc: &mut u32) {
     println!(

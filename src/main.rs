@@ -1,5 +1,5 @@
 use std::fs;
-use crate::assembler::{halt, mov, put, Address};
+use crate::assembler::{add, halt, mov, put, Address};
 use crate::base::connection_element::ConnectionElement;
 use crate::base::io_collection_element::IOCollectionElement;
 use crate::base::schema::{RunConfig, Schema, flatten_schema, run_flat_schema, generate_verilog};
@@ -68,6 +68,7 @@ fn main() {
     let mut pc = 0u32;
     put(&mut pc, Address::Direct(0x30), 44);
     mov(&mut pc, Address::Direct(0x30), Address::Direct(0x35));
+    add(&mut pc, Address::Direct(0x30), Address::Direct(0x00), Address::Direct(0x37));
     halt(&mut pc);
 
 
