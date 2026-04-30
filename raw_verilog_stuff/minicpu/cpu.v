@@ -254,9 +254,9 @@ module cpu (
         end
         `INTERNAL_STATE_FETCH_ADDRESSING: begin
           $display("INTERNAL_STATE_FETCH_ADDRESSING");
-          addressing_d1 <= rdata[3:2];
+          addressing_d1 <= rdata[1:0];
           addressing_d2 <= rdata[2:1];
-          addressing_d3 <= rdata[1:0];
+          addressing_d3 <= rdata[3:2];
           addr <= reg_pc;
           case (reg_instr)
             `INSTR_PUT: begin

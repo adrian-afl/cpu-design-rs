@@ -1,4 +1,5 @@
 use std::fs;
+use crate::assembler::{halt, mov, put, Address};
 use crate::base::connection_element::ConnectionElement;
 use crate::base::io_collection_element::IOCollectionElement;
 use crate::base::schema::{RunConfig, Schema, flatten_schema, run_flat_schema, generate_verilog};
@@ -9,6 +10,7 @@ use crate::elements::register_element::RegisterElement;
 pub mod base;
 pub mod elements;
 pub mod gates;
+mod assembler;
 
 const LOGICAL_ZERO: f32 = 0.0;
 const LOGICAL_ONE: f32 = 5.0;
@@ -63,6 +65,13 @@ fn bits_to_u64(bits: &[f32]) -> u64 {
 }
 
 fn main() {
+    let mut pc = 0u32;
+    put(&mut pc, Address::Direct(0x30), 44);
+    mov(&mut pc, Address::Direct(0x30), Address::Direct(0x35));
+    halt(&mut pc);
+
+
+    return;
     let mut schema = Schema::new();
 
     let mut binary_in_a = Vec::new();

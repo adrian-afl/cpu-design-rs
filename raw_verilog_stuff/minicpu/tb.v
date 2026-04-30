@@ -34,144 +34,140 @@ module cpu_tb ();
     force_ext_mem = 1;
     #5 rst = 0;
 
-    // put opcode
-    #5 ext_addr = 32'h00;
+
+    // opcode
+    #5 ext_addr = 32'd0;
     #5 ext_wdata = `INSTR_PUT;
     #5 ext_wr_en = 1;
     #5 clk = 1;
     #5 clk = 0;
     #5 ext_wr_en = 0;
 
-    // direct addressing
-    #5 ext_addr = 32'h01;
+    // addressing
+    #5 ext_addr = 32'd1;
     #5 ext_wdata = 8'b00_00_00;
     #5 ext_wr_en = 1;
     #5 clk = 1;
     #5 clk = 0;
     #5 ext_wr_en = 0;
 
-    // 32 bit destination which will be 0x10
-    #5 ext_addr = 32'h02;
+    #5 ext_addr = 32'd2;
     #5 ext_wdata = 8'h00;
     #5 ext_wr_en = 1;
     #5 clk = 1;
     #5 clk = 0;
     #5 ext_wr_en = 0;
 
-    #5 ext_addr = 32'h03;
+    #5 ext_addr = 32'd3;
     #5 ext_wdata = 8'h00;
     #5 ext_wr_en = 1;
     #5 clk = 1;
     #5 clk = 0;
     #5 ext_wr_en = 0;
 
-    #5 ext_addr = 32'h04;
+    #5 ext_addr = 32'd4;
     #5 ext_wdata = 8'h00;
     #5 ext_wr_en = 1;
     #5 clk = 1;
     #5 clk = 0;
     #5 ext_wr_en = 0;
 
-    #5 ext_addr = 32'h05;
+    #5 ext_addr = 32'd5;
     #5 ext_wdata = 8'h30;
     #5 ext_wr_en = 1;
     #5 clk = 1;
     #5 clk = 0;
     #5 ext_wr_en = 0;
 
+    // 8 bit value
 
-    // 8 bit value which will be 0x66
-
-    #5 ext_addr = 32'h06;
-    #5 ext_wdata = 8'h66;
+    #5 ext_addr = 32'd6;
+    #5 ext_wdata = 8'd44;
     #5 ext_wr_en = 1;
     #5 clk = 1;
     #5 clk = 0;
     #5 ext_wr_en = 0;
 
-    // mov opcode
-    #5 ext_addr = 32'h07;
+    // opcode
+    #5 ext_addr = 32'd7;
     #5 ext_wdata = `INSTR_MOV;
     #5 ext_wr_en = 1;
     #5 clk = 1;
     #5 clk = 0;
     #5 ext_wr_en = 0;
 
-    // direct addressing
-    #5 ext_addr = 32'h08;
+    // addressing
+    #5 ext_addr = 32'd8;
     #5 ext_wdata = 8'b00_00_00;
     #5 ext_wr_en = 1;
     #5 clk = 1;
     #5 clk = 0;
     #5 ext_wr_en = 0;
 
-    // 32 bit source which will be 0x30
-    #5 ext_addr = 32'h09;
+    #5 ext_addr = 32'd9;
     #5 ext_wdata = 8'h00;
     #5 ext_wr_en = 1;
     #5 clk = 1;
     #5 clk = 0;
     #5 ext_wr_en = 0;
 
-    #5 ext_addr = 32'h0A;
+    #5 ext_addr = 32'd10;
     #5 ext_wdata = 8'h00;
     #5 ext_wr_en = 1;
     #5 clk = 1;
     #5 clk = 0;
     #5 ext_wr_en = 0;
 
-    #5 ext_addr = 32'h0B;
+    #5 ext_addr = 32'd11;
     #5 ext_wdata = 8'h00;
     #5 ext_wr_en = 1;
     #5 clk = 1;
     #5 clk = 0;
     #5 ext_wr_en = 0;
 
-    #5 ext_addr = 32'h0C;
+    #5 ext_addr = 32'd12;
     #5 ext_wdata = 8'h30;
     #5 ext_wr_en = 1;
     #5 clk = 1;
     #5 clk = 0;
     #5 ext_wr_en = 0;
 
-    // 32 bit destination which will be 0x21
-    #5 ext_addr = 32'h0D;
+    #5 ext_addr = 32'd13;
     #5 ext_wdata = 8'h00;
     #5 ext_wr_en = 1;
     #5 clk = 1;
     #5 clk = 0;
     #5 ext_wr_en = 0;
 
-    #5 ext_addr = 32'h0E;
+    #5 ext_addr = 32'd14;
     #5 ext_wdata = 8'h00;
     #5 ext_wr_en = 1;
     #5 clk = 1;
     #5 clk = 0;
     #5 ext_wr_en = 0;
 
-    #5 ext_addr = 32'h0F;
+    #5 ext_addr = 32'd15;
     #5 ext_wdata = 8'h00;
     #5 ext_wr_en = 1;
     #5 clk = 1;
     #5 clk = 0;
     #5 ext_wr_en = 0;
 
-    #5 ext_addr = 32'h10;
-    #5 ext_wdata = 8'h21;
+    #5 ext_addr = 32'd16;
+    #5 ext_wdata = 8'h35;
     #5 ext_wr_en = 1;
     #5 clk = 1;
     #5 clk = 0;
     #5 ext_wr_en = 0;
 
-
-    // halt
-
-    #5 ext_addr = 32'h11;
+    // opcode
+    #5 ext_addr = 32'd17;
     #5 ext_wdata = `INSTR_HALT;
     #5 ext_wr_en = 1;
     #5 clk = 1;
     #5 clk = 0;
     #5 ext_wr_en = 0;
+
 
     #5 force_ext_mem = 1;
     for (i = 0; i < 64; i = i + 1) begin
