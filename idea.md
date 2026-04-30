@@ -78,33 +78,72 @@ waste space vs more complicated decoder?
 
 add would need 3 addresses now so lets fuck it and run with variable sizes and 32 bit wide bus
 
+maybe separate param for adressing would be nice
+maybe this can be part of the address?
+better separate param
+
+adressing have to support up to 3 params to best adjust it to 4 params. this gives 2 bits per param so 4 values:
+in memory addressing:
+- 00 - direct memory address
+- 01 - indirect memory address, points to memory with address to access in the end
+- rest unused for now
+in jumps addressing:
+- 00 - absolute
+- 01 - relative
+
+- PUT opcode 8 bit
+  - 8 bit adressing
+  - then 32 bit destination
+  - then 8 bit value
+
 - MOV opcode 8 bit
+  - 8 bit adressing
   - then 32 bit source
   - then 32 bit destination
 
 - ADD/SUB/MUL/DIV opcode 8 bit
+  - 8 bit adressing
   - then 32 bit A
   - then 32 bit B
   - then 32 bit destination
 
 - JEQ opcode 8 bit
+  - 8 bit adressing
   - then 32 bit value
   - then 32 bit expected
   - then 32 bit jump_destination
 
+- JCRY opcode 8 bit jump only if carry set
+  - 8 bit adressing
+  - then 32 bit jump_destination
+
+- CRYCLR clears carry
+
+- HALT halts, what to do next is a tricky question, probably only rst
+
 - SPUSH opcode 8 bit - pushes PC to SP and advances SP
 
 - SPOP opcode 8 bit - pops PC from SP and sets PC to it, maybe + 1
+
+actually here its interesting to realize that stack is the only thing that is stateful here, if stack would be removed the cpu would be completely stateless, so could support multiple users simulatenously. interrupts would be needed for that, also just instruction to set stack pointer would suffice
 
 Giga hacky but for now will be useful for serial stuff
 
 probably not good idea, skip for now, will pollute cpu internals with some stupid uart
 
 - PUTC opcode 8 bit
+  - 8 bit adressing
   - then 32 bit source_address
 
 - READC opcode 8 bit
+  - 8 bit adressing
   - then 32 bit destination_address
+
+
+Decoding could go like this:
+- fetch opcode and enter state respective for this instruction
+- each would have their own state machines - good or bad? too many luts? it could certainly be reused
+
 
 Debugger:
   - Arduino connected to 3 pins:

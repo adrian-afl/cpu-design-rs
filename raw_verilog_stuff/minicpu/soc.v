@@ -3,38 +3,44 @@
 // combine all shit together
 module soc (
     input wire clk,
-    input wire rst
+    input wire rst,
+
+    input [31:0] ext_addr,
+    output [7:0] ext_rdata,
+    input [7:0] ext_wdata,
+    input ext_wr_en,
+    input force_ext_mem
 );
 
-  wire [15:0] cpu_rdata;
-  wire [15:0] cpu_wdata;
+  wire [7:0] cpu_rdata;
+  wire [7:0] cpu_wdata;
   wire cpu_wr_en;
-  wire [15:0] addr_bus;
+  wire [31:0] addr_bus;
 
   (* keep = "true", syn_preserve = 1 *)
   cpu i_cpu1 (
-      .clk(clk),
-      .rst(rst),  // no reset for now
+      .clk  (clk && !force_ext_mem),
+      .rst  (rst),
       .rdata(cpu_rdata),
       .wdata(cpu_wdata),
       .wr_en(cpu_wr_en),
-      .addr(addr_bus)
+      .addr (addr_bus)
   );
+
+  wire [31:0] indirect_addr_bus = force_ext_mem ? ext_addr : addr_bus;
+  wire [7:0] indirect_wdata = force_ext_mem ? ext_wdata : cpu_wdata;
+  wire indirect_wr_en = force_ext_mem ? ext_wr_en : cpu_wr_en;
 
   (* keep = "true", syn_preserve = 1 *)
   memory16kx2 sram (
-      .clk(run_signal),
-      .rst(1'b0),  // no reset for now
-      .memory_readout(memory_readout),
-      .memory_writeout(memory_writeout),
-      .memory_write_enable(memory_write_enable),
-      .address_bus(address_bus),
-      .out_reg_x(out_reg_x),
-      .out_reg_y(out_reg_y),
-      .out_reg_accu(out_reg_accu),
-      .out_reg_pc(out_reg_pc),
-      .out_reg_sp(out_reg_sp)
+      .clk  (clk),
+      .rdata(cpu_rdata),
+      .wdata(indirect_wdata),
+      .wr_en(indirect_wr_en),
+      .addr (indirect_addr_bus)
   );
+
+  assign ext_rdata = cpu_rdata;
 
 endmodule
 ;

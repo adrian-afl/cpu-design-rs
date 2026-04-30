@@ -2,60 +2,80 @@ module cpu (
     input clk,
     input rst,
 
-    input [15:0] rdata,
+    input [7:0] rdata,
 
-    output reg [15:0] wdata = 0,
+    output reg [7:0] wdata = 0,
     output reg wr_en = 0,
-    output reg [15:0] addr = 0
+    output reg [31:0] addr = 0
 );
 
-  `define INSTR_HALT 16'h0
+  // instructions, see idea.md for what is going on
 
-  `define INSTR_STX_DIRECT 16'h10
-  `define INSTR_STY_DIRECT 16'h11
+  `define INSTR_HALT 8'h00
+  `define INSTR_CRYCLR 8'h01
+  `define INSTR_SPUSH 8'h02
+  `define INSTR_SPOP 8'h03
 
-  `define INSTR_MEM_LX_DIRECT 16'h12
-  `define INSTR_MEM_LY_DIRECT 16'h13
+  `define INSTR_MOV 8'h10
+  `define INSTR_PUT 8'h11
 
-  `define INSTR_MEM_LX_INDIRECT 16'h14
-  `define INSTR_MEM_LY_INDIRECT 16'h15
+  `define INSTR_ADD 8'h20
+  `define INSTR_SUB 8'h21
+  `define INSTR_MUL 8'h22
+  `define INSTR_DIV 8'h23
 
-  `define INSTR_MEM_SX_DIRECT 16'h16
-  `define INSTR_MEM_SY_DIRECT 16'h17
+  `define INSTR_JEQ 8'h30
+  `define INSTR_JCRY 8'h31
 
-  `define INSTR_MEM_SX_INDIRECT 16'h18
-  `define INSTR_MEM_SY_INDIRECT 16'h19
+  // states that definitely will get reworked heavily maybe
+  // even state machine per instruction would be reasonable
+  // as there are so little instructions that are wildly different
 
-  `define INSTR_ADD 16'h20
-  `define INSTR_SUB 16'h21
-  `define INSTR_MUL 16'h22
-  `define INSTR_DIV 16'h23
+  // `define INTERNAL_STATE_PREPARE_FETCH_INSTR 8'd0
+  // `define INTERNAL_STATE_FETCH_INSTR 8'd1
+  // `define INTERNAL_STATE_FETCH_INSTR_DATA_BUS_PREFETCH 8'd2
+  // `define INTERNAL_STATE_EXEC 8'd3
+  // `define INTERNAL_STATE_FINALIZE 8'd4
+  // `define INTERNAL_STATE_HALTED 8'd5
 
-  `define INSTR_MOVE_X_ACCU 16'h30
-  `define INSTR_MOVE_Y_ACCU 16'h31
-  `define INSTR_MOVE_X_Y 16'h32
-  `define INSTR_MOVE_Y_X 16'h33
-  `define INSTR_MOVE_ACCU_X 16'h34
-  `define INSTR_MOVE_ACCU_Y 16'h35
 
-  `define INTERNAL_STATE_PREPARE_FETCH_INSTR 8'd0
-  `define INTERNAL_STATE_FETCH_INSTR 8'd1
-  `define INTERNAL_STATE_FETCH_INSTR_DATA_BUS_PREFETCH 8'd2
-  `define INTERNAL_STATE_EXEC 8'd3
-  `define INTERNAL_STATE_FINALIZE 8'd4
-  `define INTERNAL_STATE_HALTED 8'd5
+  `define INTERNAL_STATE_PREPARE_FETCH_INSTRUCTION 8'd0
+  `define INTERNAL_STATE_FETCH_INSTRUCTION 8'd1
+  `define INTERNAL_STATE_FETCH_ADDRESSING 8'd2
+  `define INTERNAL_STATE_FETCH_32B_INTO_D1 8'd3
+  `define INTERNAL_STATE_FETCH_32B_INTO_D2 8'd4
+  `define INTERNAL_STATE_FETCH_32B_INTO_D3 8'd5
+  `define INTERNAL_STATE_RESOLVE_D1_ONCE 8'd6
+  `define INTERNAL_STATE_RESOLVE_D2_ONCE 8'd7
+  `define INTERNAL_STATE_RESOLVE_D3_ONCE 8'd8
+  `define INTERNAL_STATE_EXEC 8'd9
+  `define INTERNAL_STATE_FINALIZE 8'd10
+  `define INTERNAL_STATE_HALTED 8'hFF
 
-  reg [ 8:0] current_state = 0;
+  `define INTERNAL_ADRESSING_DIRECT 8'b00
+  `define INTERNAL_ADRESSING_INDIRECT 8'b01
+  `define INTERNAL_ADRESSING_ABSOLUTE 8'b00
+  `define INTERNAL_ADRESSING_RELATIVE 8'b01
+
+  reg [7:0] cursor = 0;  // for multi byte reads
+
+  reg [7:0] current_state = 0;
 
   reg [15:0] reg_pc = 0;
   reg [15:0] reg_sp = 0;
 
-  reg [15:0] reg_instr;
-  reg [15:0] reg_instr_data;
+  reg [7:0] reg_instr;
+  reg [2:0] addressing_d1 = 0;
+  reg [2:0] addressing_d2 = 0;
+  reg [2:0] addressing_d3 = 0;
+  reg [32 * 3 - 1:0] reg_instr_data_full;
+  wire [31:0] reg_instr_data_1;
+  wire [31:0] reg_instr_data_2;
+  wire [31:0] reg_instr_data_3;
 
-  reg [15:0] reg_x;
-  reg [15:0] reg_y;
-  reg [16:0] reg_accu;
+  assign reg_instr_data_1 = reg_instr_data_full[32*1-1:32*0];
+  assign reg_instr_data_2 = reg_instr_data_full[32*2-1:32*1];
+  assign reg_instr_data_3 = reg_instr_data_full[32*3-1:32*2];
 
   always @(posedge clk) begin
     addr   <= addr;
@@ -63,258 +83,200 @@ module cpu (
     wr_en  <= 0;
 
     case (current_state)
-      `INTERNAL_STATE_PREPARE_FETCH_INSTR: begin
+      `INTERNAL_STATE_PREPARE_FETCH_INSTRUCTION: begin
+        $display("INTERNAL_STATE_PREPARE_FETCH_INSTRUCTION");
         // prepare reading instruction, next cycle will have it ready
         addr <= reg_pc;
-        current_state <= `INTERNAL_STATE_FETCH_INSTR;
+        current_state <= `INTERNAL_STATE_FETCH_INSTRUCTION;
       end
-      `INTERNAL_STATE_FETCH_INSTR: begin
+      `INTERNAL_STATE_FETCH_INSTRUCTION: begin
+        $display("INTERNAL_STATE_FETCH_INSTRUCTION");
         // fetch instruction 
         reg_instr <= rdata;
-        addr <= reg_pc + 1;  // also prepare to read the instruction data
-        current_state <= `INTERNAL_STATE_FETCH_INSTR_DATA_BUS_PREFETCH;
+        addr <= reg_pc + 1;  // also prepare to read the addressiing
+        current_state <= `INTERNAL_STATE_FETCH_ADDRESSING;
         // for debugging print next instruction and current registers
-        case (rdata)
-          `INSTR_STX_DIRECT:
-          $display(
-              "STX_DIRECT\tX %h, Y %h, ACCU %h, PC %h, SP %h",
-              reg_x,
-              reg_y,
-              reg_accu,
-              reg_pc,
-              reg_sp
-          );
-          `INSTR_STY_DIRECT:
-          $display(
-              "STY_DIRECT\tX %h, Y %h, ACCU %h, PC %h, SP %h",
-              reg_x,
-              reg_y,
-              reg_accu,
-              reg_pc,
-              reg_sp
-          );
-          `INSTR_MEM_LX_DIRECT:
-          $display(
-              "MEM_LX_DIRECT\tX %h, Y %h, ACCU %h, PC %h, SP %h",
-              reg_x,
-              reg_y,
-              reg_accu,
-              reg_pc,
-              reg_sp
-          );
-          `INSTR_MEM_LY_DIRECT:
-          $display(
-              "MEM_LY_DIRECT\tX %h, Y %h, ACCU %h, PC %h, SP %h",
-              reg_x,
-              reg_y,
-              reg_accu,
-              reg_pc,
-              reg_sp
-          );
-          `INSTR_MEM_LX_INDIRECT:
-          $display(
-              "MEM_LX_INDIRECT\tX %h, Y %h, ACCU %h, PC %h, SP %h",
-              reg_x,
-              reg_y,
-              reg_accu,
-              reg_pc,
-              reg_sp
-          );
-          `INSTR_MEM_LY_INDIRECT:
-          $display(
-              "MEM_LY_INDIRECT\tX %h, Y %h, ACCU %h, PC %h, SP %h",
-              reg_x,
-              reg_y,
-              reg_accu,
-              reg_pc,
-              reg_sp
-          );
-          `INSTR_MEM_SX_DIRECT:
-          $display(
-              "MEM_SX_DIRECT\tX %h, Y %h, ACCU %h, PC %h, SP %h",
-              reg_x,
-              reg_y,
-              reg_accu,
-              reg_pc,
-              reg_sp
-          );
-          `INSTR_MEM_SY_DIRECT:
-          $display(
-              "MEM_SY_DIRECT\tX %h, Y %h, ACCU %h, PC %h, SP %h",
-              reg_x,
-              reg_y,
-              reg_accu,
-              reg_pc,
-              reg_sp
-          );
-          `INSTR_MEM_SX_INDIRECT:
-          $display(
-              "MEM_SX_INDIRECT\tX %h, Y %h, ACCU %h, PC %h, SP %h",
-              reg_x,
-              reg_y,
-              reg_accu,
-              reg_pc,
-              reg_sp
-          );
-          `INSTR_MEM_SY_INDIRECT:
-          $display(
-              "MEM_SY_INDIRECT\tX %h, Y %h, ACCU %h, PC %h, SP %h",
-              reg_x,
-              reg_y,
-              reg_accu,
-              reg_pc,
-              reg_sp
-          );
-          `INSTR_ADD:
-          $display(
-              "ADD        \tX %h, Y %h, ACCU %h, PC %h, SP %h",
-              reg_x,
-              reg_y,
-              reg_accu,
-              reg_pc,
-              reg_sp
-          );
-          `INSTR_SUB:
-          $display(
-              "SUB        \tX %h, Y %h, ACCU %h, PC %h, SP %h",
-              reg_x,
-              reg_y,
-              reg_accu,
-              reg_pc,
-              reg_sp
-          );
-          `INSTR_MUL:
-          $display(
-              "MUL        \tX %h, Y %h, ACCU %h, PC %h, SP %h",
-              reg_x,
-              reg_y,
-              reg_accu,
-              reg_pc,
-              reg_sp
-          );
-          `INSTR_DIV:
-          $display(
-              "DIV        \tX %h, Y %h, ACCU %h, PC %h, SP %h",
-              reg_x,
-              reg_y,
-              reg_accu,
-              reg_pc,
-              reg_sp
-          );
-          `INSTR_MOVE_X_ACCU:
-          $display(
-              "MOVE_X_ACCU\tX %h, Y %h, ACCU %h, PC %h, SP %h",
-              reg_x,
-              reg_y,
-              reg_accu,
-              reg_pc,
-              reg_sp
-          );
-          `INSTR_MOVE_Y_ACCU:
-          $display(
-              "MOVE_Y_ACCU\tX %h, Y %h, ACCU %h, PC %h, SP %h",
-              reg_x,
-              reg_y,
-              reg_accu,
-              reg_pc,
-              reg_sp
-          );
-          `INSTR_MOVE_X_Y:
-          $display(
-              "MOVE_X_Y\tX %h, Y %h, ACCU %h, PC %h, SP %h", reg_x, reg_y, reg_accu, reg_pc, reg_sp
-          );
-          `INSTR_MOVE_Y_X:
-          $display(
-              "MOVE_Y_X\tX %h, Y %h, ACCU %h, PC %h, SP %h", reg_x, reg_y, reg_accu, reg_pc, reg_sp
-          );
-          `INSTR_MOVE_ACCU_X:
-          $display(
-              "MOVE_ACCU_X\tX %h, Y %h, ACCU %h, PC %h, SP %h",
-              reg_x,
-              reg_y,
-              reg_accu,
-              reg_pc,
-              reg_sp
-          );
-          `INSTR_MOVE_ACCU_Y:
-          $display(
-              "MOVE_ACCU_Y\tX %h, Y %h, ACCU %h, PC %h, SP %h",
-              reg_x,
-              reg_y,
-              reg_accu,
-              reg_pc,
-              reg_sp
-          );
-          `INSTR_HALT:
-          $display(
-              "HALT       \tX %h, Y %h, ACCU %h, PC %h, SP %h",
-              reg_x,
-              reg_y,
-              reg_accu,
-              reg_pc,
-              reg_sp
-          );
+        case (reg_instr)
+          `INSTR_PUT: $display("PUT");
+          `INSTR_HALT: $display("HALT");
+          default: reg_pc <= reg_pc;
+        endcase
+
+        // case (rdata)
+        //   `INSTR_ADD:
+        //   $display(
+        //       "ADD        \tX %h, Y %h, ACCU %h, PC %h, SP %h",
+        //       reg_x,
+        //       reg_y,
+        //       reg_accu,
+        //       reg_pc,
+        //       reg_sp
+        //   );
+        //   `INSTR_SUB:
+        //   $display(
+        //       "SUB        \tX %h, Y %h, ACCU %h, PC %h, SP %h",
+        //       reg_x,
+        //       reg_y,
+        //       reg_accu,
+        //       reg_pc,
+        //       reg_sp
+        //   );
+        //   `INSTR_MUL:
+        //   $display(
+        //       "MUL        \tX %h, Y %h, ACCU %h, PC %h, SP %h",
+        //       reg_x,
+        //       reg_y,
+        //       reg_accu,
+        //       reg_pc,
+        //       reg_sp
+        //   );
+        //   `INSTR_DIV:
+        //   $display(
+        //       "DIV        \tX %h, Y %h, ACCU %h, PC %h, SP %h",
+        //       reg_x,
+        //       reg_y,
+        //       reg_accu,
+        //       reg_pc,
+        //       reg_sp
+        //   );
+        //   `INSTR_HALT:
+        //   $display(
+        //       "HALT       \tX %h, Y %h, ACCU %h, PC %h, SP %h",
+        //       reg_x,
+        //       reg_y,
+        //       reg_accu,
+        //       reg_pc,
+        //       reg_sp
+        //   );
+        // endcase
+      end
+      `INTERNAL_STATE_FETCH_ADDRESSING: begin
+        $display("INTERNAL_STATE_FETCH_ADDRESSING");
+        addressing_d1 <= rdata[3:2];
+        addressing_d2 <= rdata[2:1];
+        addressing_d3 <= rdata[1:0];
+        addr <= reg_pc;
+        case (reg_instr)
+          `INSTR_PUT: begin
+            // put gotta read one thing into D1
+            current_state <= `INTERNAL_STATE_FETCH_32B_INTO_D1;
+            cursor <= 4;  // read 4 bytes so d1 is filled with 32 bits
+                          // and additional byte into d2 which is the value to save
+            addr <= reg_pc + 2 + 4;
+          end
+          default: current_state <= `INTERNAL_STATE_EXEC;
         endcase
       end
-      `INTERNAL_STATE_FETCH_INSTR_DATA_BUS_PREFETCH: begin
-        // fetch instruction data
-        reg_instr_data <= rdata;
-        current_state  <= `INTERNAL_STATE_EXEC;
-        // if needed, prepare read for the instruction executor
-        case (reg_instr)
-          `INSTR_STX_DIRECT: reg_x <= rdata;
-          `INSTR_STY_DIRECT: reg_y <= rdata;
-          `INSTR_MEM_LX_DIRECT: addr <= rdata;
-          `INSTR_MEM_LY_DIRECT: addr <= rdata;
-          `INSTR_MEM_SX_DIRECT: addr <= rdata;
-          `INSTR_MEM_SY_DIRECT: addr <= rdata;
-          default: addr <= addr;
+      `INTERNAL_STATE_FETCH_32B_INTO_D1: begin
+        $display("INTERNAL_STATE_FETCH_32B_INTO_D1, cursor %d", cursor);
+        cursor <= cursor - 1;
+        addr   <= reg_pc + 1 + cursor;
+        case (cursor)
+          3: begin
+            reg_instr_data_full[8*1-1:8*0] = rdata;
+          end
+          2: begin
+            reg_instr_data_full[8*2-1:8*1] = rdata;
+          end
+          1: begin
+            reg_instr_data_full[8*3-1:8*2] = rdata;
+          end
+          0: begin
+            reg_instr_data_full[8*4-1:8*3] = rdata;
+
+            case (reg_instr)
+              `INSTR_PUT: begin
+                // put gotta read one thing into D1
+                case (addressing_d1)
+                  `INTERNAL_ADRESSING_DIRECT: current_state <= `INTERNAL_STATE_EXEC;
+                  `INTERNAL_ADRESSING_INDIRECT: begin
+                    addr <= reg_instr_data_1;
+                    current_state <= `INTERNAL_STATE_RESOLVE_D1_ONCE;
+                  end
+                  default: current_state <= `INTERNAL_STATE_EXEC;
+                endcase
+              end
+              default: current_state <= `INTERNAL_STATE_EXEC;
+            endcase
+
+          end
+          7: begin
+            reg_instr_data_full[8*5-1:8*4] = rdata;
+          end
+          6: begin
+            reg_instr_data_full[8*6-1:8*5] = rdata;
+          end
+          5: begin
+            reg_instr_data_full[8*7-1:8*6] = rdata;
+          end
+          4: begin
+            reg_instr_data_full[8*8-1:8*7] = rdata;
+          end
+          11: begin
+            reg_instr_data_full[8*9-1:8*8] = rdata;
+          end
+          10: begin
+            reg_instr_data_full[8*10-1:8*9] = rdata;
+          end
+          9: begin
+            reg_instr_data_full[8*11-1:8*10] = rdata;
+          end
+          8: begin
+            reg_instr_data_full[8*12-1:8*11] = rdata;
+          end
+          default: begin
+            cursor <= 0;
+          end
         endcase
+      end
+      `INTERNAL_STATE_RESOLVE_D1_ONCE: begin
+        $display("INTERNAL_STATE_RESOLVE_D1_ONCE");
+        addr <= reg_instr_data_1;
+        // TODO doesnt work
       end
       `INTERNAL_STATE_EXEC: begin
+        $display("INTERNAL_STATE_EXEC");
+
         // execute instruction
         current_state <= `INTERNAL_STATE_FINALIZE;
         case (reg_instr)
-          `INSTR_STX_DIRECT: reg_x <= reg_instr_data;
-          `INSTR_STY_DIRECT: reg_y <= reg_instr_data;
-          `INSTR_MEM_LX_DIRECT: reg_x <= rdata;
-          `INSTR_MEM_LY_DIRECT: reg_y <= rdata;
-          `INSTR_MEM_SX_DIRECT: begin
-            wdata <= reg_x;
-            memory_write_enable <= 1;  // those enables get reset with next cycle
+          `INSTR_PUT: begin
+
+
+            $display("reg_instr_data_1 %h", reg_instr_data_1);
+            $display("reg_instr_data_2 %h", reg_instr_data_2);
+            $display("reg_instr_data_3 %h", reg_instr_data_3);
+            wr_en <= 1;
+            addr  <= reg_instr_data_1;
+            wdata <= reg_instr_data_2[31:24];
           end
-          `INSTR_MEM_SY_DIRECT: begin
-            wdata <= reg_y;
-            memory_write_enable <= 1;
-          end
-          `INSTR_ADD: reg_accu <= reg_x + reg_y;
-          `INSTR_SUB: reg_accu <= reg_x - reg_y;
-          `INSTR_MUL: reg_accu <= reg_x * reg_y;
-          `INSTR_DIV: reg_accu <= reg_x / reg_y;
           `INSTR_HALT: current_state <= `INTERNAL_STATE_HALTED;
         endcase
       end
-      `INTERNAL_STATE_FINALIZE: begin
-        // advance PC, disable memwrite
-        reg_pc <= reg_pc + 2;
-        current_state <= `INTERNAL_STATE_PREPARE_FETCH_INSTR;
-      end
       `INTERNAL_STATE_HALTED: begin
-        reg_pc <= reg_pc + 2;
-        current_state <= `INTERNAL_STATE_PREPARE_FETCH_INSTR;
+        // $display("INTERNAL_STATE_HALTED");
+        current_state <= `INTERNAL_STATE_HALTED;
+      end
+      `INTERNAL_STATE_FINALIZE: begin
+        $display("INTERNAL_STATE_FINALIZE");
+        wr_en <= 0;
+
+        // as instrutionas vary in size pc needs to be adjusted accordingly
+
+
+        case (reg_instr)
+          `INSTR_PUT: reg_pc <= reg_pc + 1 + 1 + 4;  // opcode, adressing, d1
+          `INSTR_HALT: reg_pc <= reg_pc + 1;  // opcode
+          default: reg_pc <= reg_pc;
+        endcase
+        current_state <= `INTERNAL_STATE_PREPARE_FETCH_INSTRUCTION;
       end
       default: begin
+        $display("UNKNOWN STATE!!");
         current_state <= `INTERNAL_STATE_HALTED;
       end
     endcase
 
   end
-
-  assign out_reg_x = reg_x;
-  assign out_reg_y = reg_y;
-  assign out_reg_accu = reg_accu[15:0];
-  assign out_carry = reg_accu[16:15];
-  assign out_reg_pc = reg_pc;
-  assign out_reg_sp = reg_sp;
 
 endmodule
