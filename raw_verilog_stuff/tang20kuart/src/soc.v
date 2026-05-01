@@ -10,14 +10,14 @@ module soc (
     output [7:0] ext_rdata,
     input [7:0] ext_wdata,
     input ext_wr_en,
-    input force_ext_mem,
+    //input force_ext_mem,
 
     output [5:0] leds
 );
   `define SOC_MODE_UART_LOADER 2'd1
   `define SOC_MODE_CPU_RUNNING 2'd2
 
-
+  reg force_ext_mem = 0;
 
 
   reg [1:0] soc_mode = `SOC_MODE_UART_LOADER;
@@ -63,6 +63,11 @@ module soc (
   // top bits 002 means leds, unused now
   //   wire leds_en = dev_id == 3'b001;
 
+
+  assign leds[0] = ~mem_en;
+  assign leds[1] = ~uart_en;
+  assign leds[4:2] = ~dev_id;
+
   //   always @(posedge uart_en) $display("dev_id %h, fulladdr %h", dev_id, indirect_addr_bus);
 
   (* keep = "true", syn_preserve = 1 *)
@@ -82,10 +87,10 @@ module soc (
   uart_mod uart (
       .clk(clk),
       .rst(rst),
-      .en(uart_en),
+      .en(uart_en), // todo disable in loader
       .rdata(cpu_rdata),
       .wdata(uart_loader_enable ? uart_raw_write_data : indirect_wdata),
-      .wr_en(uart_loader_enable ? uart_raw_force_wr_en : indirect_wr_en),
+      .wr_en(uart_loader_enable ? uart_raw_force_wr_en : (indirect_wr_en && uart_en)),
       .addr(indirect_addr_bus[13:0]),
       .uart_rx(uart_rx),
       .uart_tx(uart_tx),
@@ -93,17 +98,17 @@ module soc (
       .raw_uart_rx_data_valid(raw_uart_rx_data_valid)
   );
 
-  wire bootloader_pulse;
+//  wire bootloader_pulse;
 
-  (* keep = "true", syn_preserve = 1 *)
-  pulse_gen #(
-      .CLK_FRE(27),
-      .MILISECONDS(100)
-  ) bootloader_pulse_gen(
-      .clk(clk),
-      .rst(rst),
-      .pulse_out(bootloader_pulse)
-  );
+//  (* keep = "true", syn_preserve = 1 *)
+//  pulse_gen #(
+//      .CLK_FRE(27),
+//      .MILISECONDS(100)
+//  ) bootloader_pulse_gen(
+//      .clk(clk),
+//      .rst(rst),
+//      .pulse_out(bootloader_pulse)
+//  );
 
   assign ext_rdata = cpu_rdata;
 
@@ -129,8 +134,6 @@ each command is 7 bytes so 56 bits
   reg [15:0] uart_cmd_head = 0;
   reg uart_reading = 0;
   reg uart_printing = 0;
-
-  assign leds = ~uart_raw_write_data[5:0];
 
 //  always @(posedge clk) begin
 //    if(rst && uart_loader_enable) begin
@@ -214,6 +217,9 @@ each command is 7 bytes so 56 bits
                         uart_raw_force_wr_en <= 1;
 
                         soc_mode <= `SOC_MODE_CPU_RUNNING;
+                        uart_reading <= 0;
+                        uart_cmd_head <= 0;
+                        uart_cmd <= 56'h0;
 
                     end else begin
                         uart_raw_write_data <= raw_uart_rx_data; // echo back written data

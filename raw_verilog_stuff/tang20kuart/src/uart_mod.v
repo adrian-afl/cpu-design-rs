@@ -6,7 +6,7 @@ module uart_mod (
     input  uart_rx,
     output uart_tx,
 
-    input en,
+    input re_en,
     input [13:0] addr,
     output [7:0] rdata,
     input [7:0] wdata,
@@ -51,7 +51,7 @@ module uart_mod (
   assign rx_data_ready = 1'b1; //~fifo_full;
 
   reg [7:0] output_reg = 0;
-  assign rdata = en ? output_reg : 8'bzzzzzzzz;
+  assign rdata = re_en ? output_reg : 8'bzzzzzzzz;
 
   // addressing here is:
   // write to 0x0 triggers push to fifo
