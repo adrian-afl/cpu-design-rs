@@ -1,4 +1,4 @@
-module uart_top #(
+/*module uart_top #(
     parameter integer SEND_DELAY = 1,    // Second
     parameter integer FIFO_DEPTH = 64,   // Bit
     parameter integer CLK_FRE    = 27,   // Megahertz
@@ -191,4 +191,4 @@ module uart_top #(
       .tx_busy      (tx_busy)
   );
 
-endmodule
+endmodule*/

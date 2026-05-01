@@ -20,7 +20,7 @@ module sync_fifo #(
   // address width
   localparam integer AW = (DEPTH <= 1) ? 1 : $clog2(DEPTH);
 
-  reg [WIDTH-1:0] mem[DEPTH-1];
+  reg [WIDTH-1:0] mem[0:DEPTH-1];
   reg [AW-1:0] wptr, rptr;
   reg [AW:0] count;
 
