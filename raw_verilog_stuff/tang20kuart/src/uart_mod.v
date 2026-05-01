@@ -10,7 +10,10 @@ module uart_mod (
     input [13:0] addr,
     output [7:0] rdata,
     input [7:0] wdata,
-    input wr_en
+    input wr_en,
+
+    output [7:0] raw_uart_rx_data,
+    output raw_uart_rx_data_valid
 );
 
   parameter integer FIFO_DEPTH = 64;  // Bit
@@ -23,6 +26,9 @@ module uart_mod (
   wire [7:0] rx_data;
   wire       rx_data_valid;
   wire       rx_data_ready;
+
+  assign raw_uart_rx_data = rx_data;
+  assign raw_uart_rx_data_valid = rx_data_valid;
 
   // -----------------------------
   // UART TX interface
@@ -42,31 +48,33 @@ module uart_mod (
   reg        fifo_wr_en;
   reg  [7:0] fifo_din;
 
-  assign rx_data_ready = ~fifo_full;
+  assign rx_data_ready = 1'b1; //~fifo_full;
 
   reg [7:0] output_reg = 0;
   assign rdata = en ? output_reg : 8'bzzzzzzzz;
 
   // addressing here is:
   // write to 0x0 triggers push to fifo
-  // read from 0x0 read rx_data directly AND clears it
+  // read from 0x0 reads rx_data directly
+  // read from 0x1 reads rx_data_valid directly
 
   always @(posedge clk) begin
     fifo_wr_en <= 1'b0;
     fifo_din   <= 8'h00;
 
     if (wr_en) begin
-      case (addr[1:0])
-        2'b00: begin
+     // case (addr[1:0])
+      //  2'b00: begin
           fifo_wr_en <= 1'b1;
           fifo_din   <= wdata;
           $display("Uart enqueued %c", wdata);
-        end
-        default: fifo_wr_en <= 0;
-      endcase
+      //  end
+       // default: fifo_wr_en <= 0;
+    //  endcase
     end else begin
       case (addr[1:0])
         2'b00:   output_reg <= rx_data;
+        2'b01:   output_reg <= rx_data_valid;
         default: output_reg <= 0;
       endcase
     end

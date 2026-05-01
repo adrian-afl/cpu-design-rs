@@ -93,7 +93,12 @@ module cpu (
   reg [2:0] param_loader_state = `LOADER_STATE_INACTIVE;
 
   always @(posedge clk) begin
-    if (resolve_d1_state > `LOADER_STATE_INACTIVE) begin
+    if (rst) begin
+        reg_pc <= 0;
+        reg_sp <= 0;
+        cursor <= 0;
+        current_state <= 0;
+    end else if (resolve_d1_state > `LOADER_STATE_INACTIVE) begin
       case (resolve_d1_state)
         `LOADER_STATE_PREPARE_8B: begin
           $display("resolve_d1, prepare read 8b from %h", reg_instr_data_1);
