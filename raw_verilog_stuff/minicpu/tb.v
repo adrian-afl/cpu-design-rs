@@ -9,7 +9,8 @@ module cpu_tb ();
   reg ext_wr_en = 0;
   reg force_ext_mem = 0;
 
-
+  reg uart_rx;
+  wire uart_tx;
 
   (* keep = "true", syn_preserve = 1 *)
   soc soc1 (
@@ -19,7 +20,9 @@ module cpu_tb ();
       .ext_rdata(ext_rdata),
       .ext_wdata(ext_wdata),
       .ext_wr_en(ext_wr_en),
-      .force_ext_mem(force_ext_mem)
+      .force_ext_mem(force_ext_mem),
+      .uart_rx(uart_rx),
+      .uart_tx(uart_tx)
   );
 
 
@@ -34,6 +37,7 @@ module cpu_tb ();
     force_ext_mem = 1;
     #5 rst = 0;
 
+    $monitor("[UART] time=%0t rx=%h tx=%h", $time, uart_rx, uart_tx);
 
     // opcode
     #5 ext_addr = 32'd0;
@@ -52,7 +56,7 @@ module cpu_tb ();
     #5 ext_wr_en = 0;
 
     #5 ext_addr = 32'd2;
-    #5 ext_wdata = 8'h00;
+    #5 ext_wdata = 8'b00100000;
     #5 ext_wr_en = 1;
     #5 clk = 1;
     #5 clk = 0;
@@ -82,7 +86,7 @@ module cpu_tb ();
     // 8 bit value
 
     #5 ext_addr = 32'd6;
-    #5 ext_wdata = 8'd44;
+    #5 ext_wdata = 8'd36;
     #5 ext_wr_en = 1;
     #5 clk = 1;
     #5 clk = 0;
@@ -317,9 +321,9 @@ module cpu_tb ();
     // ram[16] = `INSTR_HALT;
     // ram[17] = 16'h0102;
 
-    for (i = 0; i < 132; i = i + 1) begin
-      #5 clk = 1;
-      #5 clk = 0;
+    for (i = 0; i < 1320000000; i = i + 1) begin
+      #1 clk = 1;
+      #1 clk = 0;
     end
 
 
