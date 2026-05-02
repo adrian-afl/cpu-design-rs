@@ -31,6 +31,7 @@ module uart_bootloader (
   localparam [2:0] state_read_uart_scan_for_start = 3'h00;
   localparam [2:0] state_read_uart_read_command = 3'h01;
   localparam [2:0] state_read_uart_command_execute = 3'h02;
+  localparam [2:0] state_read_uart_command_finalize = 3'h03;
 
   reg [2:0] current_state = state_read_uart_scan_for_start;
 
@@ -94,6 +95,8 @@ module uart_bootloader (
               bus_waddr <= uart_cmd_address;
               bus_data_wr_en <= 1;
               bus_wdata <= uart_cmd_write_value;
+
+              current_state <= state_read_uart_command_finalize;
             end
             uart_cmd_opcode_read: begin
               case (readout_cycle)
@@ -121,7 +124,7 @@ module uart_bootloader (
                   end
                 end
                 3: begin
-                  current_state <= state_read_uart_scan_for_start;
+                  current_state <= state_read_uart_command_finalize;
                   readout_cycle <= 3;
                 end
                 default: readout_cycle <= 3;
@@ -133,6 +136,10 @@ module uart_bootloader (
             end
             default: bus_wdata <= 8'bzzzzzzzz;
           endcase
+        end
+        state_read_uart_command_finalize: begin
+          current_state <= state_read_uart_read_command;
+          waiting_for_uart_read_ready <= 1;
         end
         default: bus_wdata <= 8'bzzzzzzzz;
       endcase
