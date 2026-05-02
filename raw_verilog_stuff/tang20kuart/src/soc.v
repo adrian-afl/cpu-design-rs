@@ -17,6 +17,8 @@ module soc (
   `define SOC_MODE_UART_LOADER 2'd1
   `define SOC_MODE_CPU_RUNNING 2'd2
 
+  `define USE_GOWIN_SRAM 1
+
   reg force_ext_mem = 0;
 
 

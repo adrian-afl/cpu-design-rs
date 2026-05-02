@@ -1,10 +1,11 @@
 module memory16k (
     input clk,
-    input re_en,
-    input [14:0] addr,
-    output [7:0] rdata,
-    input [7:0] wdata,
-    input wr_en
+    input [31:0] bus_raddr,  // if addr R
+
+    input bus_data_re_en,  // if data R
+    output [7:0] bus_rdata,  // if data R
+    input bus_data_wr_en,  // if data W
+    input [7:0] bus_wdata  // if data W
 );
 
 
@@ -30,12 +31,12 @@ module memory16k (
 
   reg [7:0] ram[0:16 * 1024];
 
-  assign rdata = re_en ? ram[addr[12:0]] : 8'bzzzzzzzz;
+  assign bus_rdata = bus_data_re_en ? ram[bus_raddr[12:0]] : 8'bzzzzzzzz;
 
   always @(posedge clk) begin
-    if (wr_en) begin
-      $display("REALLY writing %h to %h", wdata, addr);
-      ram[addr] = wdata;
+    if (bus_data_wr_en) begin
+      $display("REALLY writing %h to %h", bus_wdata, bus_raddr[12:0]);
+      ram[bus_raddr[12:0]] = bus_wdata;
     end
   end
 `endif
