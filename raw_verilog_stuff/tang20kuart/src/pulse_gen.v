@@ -12,17 +12,17 @@ module pulse_gen #(
 
   localparam integer PULSE_PERIOD = ONE_MS_CNT * MILISECONDS;
 
-  always @(posedge clk) begin
-    if (rst) begin 
+  always_ff @(posedge clk) begin
+    if (rst) begin
         counter <= 0;
         pulse_out <= 0;
-    end else begin 
+    end else begin
         counter <= counter + 1;
         pulse_out <= 0;
-        if (counter >= PULSE_PERIOD) begin 
+        if (counter >= PULSE_PERIOD) begin
             counter <= 0;
             pulse_out <= 1;
-        end 
+        end
       end
     end
 endmodule

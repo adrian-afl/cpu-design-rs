@@ -16,27 +16,6 @@ module uart_bootloader (
   reg [7:0] bus_wdata_reg = 0;
   assign bus_wdata = en ? bus_wdata_reg : 8'bzzzzzzzz;
 
-  reg  [55:0] uart_cmd = 56'h0;
-  reg  [15:0] uart_cmd_head = 0;
-
-  wire [ 7:0] uart_cmd_header = uart_cmd[8*7-1 : 8*6];
-  wire [ 7:0] uart_cmd_opcode = uart_cmd[8*6-1 : 8*5];
-  wire [31:0] uart_cmd_address = uart_cmd[8*5-1 : 8];
-  wire [ 7:0] uart_cmd_write_value = uart_cmd[7:0];
-  wire [ 7:0] uart_cmd_read_count_remaining = uart_cmd[7:0];
-
-  localparam [7:0] uart_cmd_expected_header = 8'hFE;
-  localparam [7:0] uart_cmd_opcode_write = 8'hFB;
-  localparam [7:0] uart_cmd_opcode_read = 8'hFA;
-  localparam [7:0] uart_cmd_opcode_run = 8'hF0;
-
-  localparam [2:0] state_read_uart_scan_for_start = 3'h0;
-  localparam [2:0] state_read_uart_read_command = 3'h1;
-  localparam [2:0] state_read_uart_command_execute = 3'h2;
-  localparam [2:0] state_read_uart_command_finalize = 3'h3;
-
-  reg [2:0] current_state = state_read_uart_scan_for_start;
-
   localparam [31:0] uart_addr_write = 32'b0010_0000_0000_0000_0000_0000_0000_0000;
   localparam [31:0] uart_addr_read_data = 32'b0010_0000_0000_0000_0000_0000_0000_0000;
   localparam [31:0] uart_addr_read_data_ready = 32'b0010_0000_0000_0000_0000_0000_0000_0001;
@@ -48,6 +27,42 @@ module uart_bootloader (
   reg delay_1_cycle = 0;
 
   reg [3:0] readout_cycle = 0;
+
+
+  reg is_writing = 0;
+
+  // it starts writing at address 0
+  // protocol is:
+  // 0xDEADCODE header
+  // 256 bytes of data
+  // then the bootloader shifts to initial state, but address is not reset
+
+  /*
+  how would it look in simplest code?
+
+  let addr = 0;
+  let magic_seq_counter = 0;
+  let magic_seq = 0xDEAD;
+  let is_writing = false;
+  let write_counter = 0;
+  while(true){
+    if(!is_writing){
+      let read_byte = read_uart_byte(); // blocking
+      if(magic_seq[magic_seq_counter] == read_byte){
+        magic_seq_counter++;
+        if(magic_seq_counter == 4){
+          magic_seq_counter = 0;
+          write_counter = 256;
+        }
+      } else {
+        magic_seq_counter = 0;
+      }
+    } else {
+    
+      
+    }
+  }
+  */
 
   always @(posedge clk) begin
     if (en) begin
